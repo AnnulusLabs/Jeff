@@ -361,7 +361,7 @@ serious games (forced fun). Real games. Real work. Same decisions.
 
     {
       "task_id": "PR-4521",
-      "reviewer": "swhelchel",
+      "reviewer": "reviewer_01",
       "view_mode": "game",              // private, never reported
       "presented_at": "2026-06-15T14:30:22Z",
       "decided_at": "2026-06-15T14:32:15Z",

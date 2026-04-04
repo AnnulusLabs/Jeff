@@ -69,7 +69,7 @@ TRANSITIONS = {
     TaskState.REJECTED: {TaskState.ASSIGNED, TaskState.ARCHIVED},
     TaskState.EXECUTING: {TaskState.EXECUTED, TaskState.FAILED},
     TaskState.EXECUTED: {TaskState.ARCHIVED},
-    TaskState.FAILED: {TaskState.ASSIGNED, TaskState.ARCHIVED},
+    TaskState.FAILED: {TaskState.ASSIGNED, TaskState.CREATED, TaskState.ARCHIVED},
     TaskState.ARCHIVED: set(),
 }
 
@@ -669,8 +669,10 @@ class Runtime:
             self.transition_task(task.id, TaskState.FAILED,
                                  actor="kernel", reason=f"Max retries ({max_retries}): {error}")
         else:
-            self.transition_task(task.id, TaskState.CREATED,
+            self.transition_task(task.id, TaskState.FAILED,
                                  actor="kernel", reason=f"Retry ({retries+1}/{max_retries}): {error}")
+            self.transition_task(task.id, TaskState.CREATED,
+                                 actor="kernel", reason=f"Reset for retry ({retries+1}/{max_retries})")
 
     def summary(self) -> str:
         active = sum(1 for t in self.tasks.values()

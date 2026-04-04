@@ -21,6 +21,7 @@ Gripe #28 extension: Don't just remember dead ends — build past them.
 AnnulusLabs LLC · April 2026
 """
 
+import sys
 import json
 import subprocess
 import time
@@ -139,7 +140,7 @@ def install_package(package: str, timeout: int = 60) -> bool:
     """Install a PyPI package. Returns success."""
     try:
         result = subprocess.run(
-            ["pip", "install", package, "--break-system-packages", "-q"],
+            [sys.executable, "-m", "pip", "install", package, "-q"],
             capture_output=True, text=True, timeout=timeout)
         return result.returncode == 0
     except Exception:
