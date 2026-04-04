@@ -15,7 +15,8 @@ Commands:
     jeff version      Version
 """
 
-import os, hashlib
+import hashlib
+import os
 import click
 from jeff import __version__
 from jeff import skin, bone, personality
@@ -184,11 +185,11 @@ def ship():
                 skin.alert(personality.Level.WARN, f"{f}: {format_result(gate)}")
                 issues += 1
     if issues == 0:
-        test = bash("python -m pytest --tb=short -q 2>/dev/null || echo 'no tests'", timeout=60)
-        if test.success:
+        test = bash(["python", "-m", "pytest", "--tb=short", "-q"], timeout=60)
+        if test.success or test.exit_code == 5:
             skin.done("Gate passed. Ready to ship.")
         else:
-            skin.alert(personality.Level.ERROR, f"Tests failed.\n{test.output}")
+            skin.alert(personality.Level.ERROR, f"Tests failed.\n{test.output or test.error}")
     else:
         skin.alert(personality.Level.WARN, f"{issues} file(s) flagged. Fix before shipping.")
 
@@ -273,7 +274,14 @@ def workplay(port, theme):
     """The game IS the work. Launch themed PR review."""
     os.environ["WORKPLAY_THEME"] = theme
     os.environ["WORKPLAY_PORT"] = str(port)
-    from jeff.workplay import serve
+    try:
+        from jeff.workplay import serve
+    except ModuleNotFoundError as exc:
+        if exc.name in {"fastapi", "pydantic", "starlette", "uvicorn"}:
+            raise click.ClickException(
+                "WorkPlay needs its extra deps. Install with: pip install -e '.[workplay]'"
+            ) from exc
+        raise
     serve(port=port)
 
 

@@ -10,7 +10,6 @@ AnnulusLabs LLC · April 2026
 
 import asyncio
 import httpx
-import json
 import time
 import socket
 import logging
@@ -166,7 +165,6 @@ class Cluster:
                 data = resp.json()
                 for m in data.get("models", []):
                     details = m.get("details", {})
-                    size = m.get("size", 0)
                     # Infer device from size_vram field
                     vram = m.get("size_vram", 0)
                     if vram > 0:

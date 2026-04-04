@@ -12,12 +12,10 @@ Works in any terminal that supports VT100 (all of them).
 AnnulusLabs LLC · April 2026
 """
 
-import os
 import sys
 import time
 import random
 import threading
-from pathlib import Path
 
 # ── ANSI Escapes ─────────────────────────────────────────────────────
 
@@ -271,7 +269,6 @@ def speak_animated(text: str, frame_delay: float = 0.08,
             pass
 
     # Draw speech bubble above face
-    face_lines = FRAMES[0].strip("\n").split("\n")
     bubble = SPEECH.format(text=text)
     bubble_lines = bubble.strip("\n").split("\n")
     offset = len(bubble_lines)
@@ -327,7 +324,6 @@ def greet(voice: bool = False):
 def thinking(duration: float = 2.0):
     """Jeff thinks. Eyes shift."""
     sys.stdout.write(HIDE_CURSOR)
-    lines = FACE_CLOSED.strip("\n").split("\n")
     end = time.time() + duration
     dot_states = ["·    ", " ·   ", "  ·  ", "   · ", "    ·"]
     idx = 0

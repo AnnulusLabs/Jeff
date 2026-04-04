@@ -9,6 +9,8 @@ The game FRAMES the artifact. It never REPLACES it.
 AnnulusLabs LLC · April 2026
 """
 
+import json
+
 THEMES = {
     "medieval": {
         "name": "Kingdom Review",
@@ -94,7 +96,8 @@ THEMES = {
 
 
 def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
-                diff_html: str = "") -> str:
+                diff_html: str = "", repo_full_name: str = "",
+                return_theme: str = "medieval") -> str:
     """Render the full WorkPlay review page."""
     theme = THEMES.get(theme_name, THEMES["work"])
     is_work = theme_name == "work"
@@ -111,6 +114,8 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
     files_changed = len(pr.get("files", []))
     additions = sum(f.get("additions", 0) for f in pr.get("files", []))
     deletions = sum(f.get("deletions", 0) for f in pr.get("files", []))
+    repo_full_name = repo_full_name or pr.get("_repo_full_name", "")
+    return_theme = return_theme if return_theme in THEMES and return_theme != "work" else "medieval"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -303,6 +308,8 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
 <script>
   const startTime = Date.now();
   const taskId = '{pr.get("id", pr_number)}';
+  const repoFullName = {json.dumps(repo_full_name)};
+  const returnTheme = {json.dumps(return_theme)};
   let currentTheme = '{theme_name}';
   let artifactOpens = 0;
   let analysisRuns = 0;
@@ -318,7 +325,12 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
 
   function toggleView() {{
     const isWork = currentTheme === 'work';
-    window.location.href = '/review/{pr_number}?theme=' + (isWork ? 'medieval' : 'work');
+    const params = new URLSearchParams({{
+      theme: isWork ? returnTheme : 'work',
+      repo_full_name: repoFullName,
+      return_theme: isWork ? returnTheme : currentTheme,
+    }});
+    window.location.href = '/review/{pr_number}?' + params.toString();
   }}
 
   function toggleKerf() {{
@@ -332,7 +344,10 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
     if (el.classList.contains('visible')) {{
       artifactOpens++;
       if (!el.dataset.loaded) {{
-        fetch('/api/diff/{pr_number}')
+        fetch('/api/diff/{pr_number}?' + new URLSearchParams({{
+          theme: currentTheme,
+          repo_full_name: repoFullName,
+        }}).toString())
           .then(r => r.text())
           .then(html => {{ el.innerHTML = html; el.dataset.loaded = '1'; }});
       }}
@@ -341,7 +356,9 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
 
   function showIssues() {{
     issueHighlights++;
-    fetch('/api/issues/{pr_number}')
+    fetch('/api/issues/{pr_number}?' + new URLSearchParams({{
+      repo_full_name: repoFullName,
+    }}).toString())
       .then(r => r.json())
       .then(data => {{
         alert(data.issues ? data.issues.join('\\n') : 'No issues detected.');
@@ -350,7 +367,9 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
 
   function runTests() {{
     analysisRuns++;
-    fetch('/api/tests/{pr_number}')
+    fetch('/api/tests/{pr_number}?' + new URLSearchParams({{
+      repo_full_name: repoFullName,
+    }}).toString())
       .then(r => r.json())
       .then(data => {{
         alert(data.result || 'Tests complete.');
@@ -380,6 +399,7 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
     const payload = {{
       task_id: taskId,
       pr_number: {pr_number},
+      repo_full_name: repoFullName,
       decision: decision,
       comment: comment,
       time_on_task_ms: elapsed,
@@ -415,7 +435,6 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
 
 def render_diff(diff_text: str, theme_name: str = "medieval") -> str:
     """Render a diff with themed colors."""
-    theme = THEMES.get(theme_name, THEMES["work"])
     lines = []
     for line in diff_text.split("\n"):
         if line.startswith("+") and not line.startswith("+++"):

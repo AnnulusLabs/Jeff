@@ -31,7 +31,7 @@ import time
 import hashlib
 import sqlite3
 import threading
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -69,7 +69,7 @@ TRANSITIONS = {
     TaskState.REJECTED: {TaskState.ASSIGNED, TaskState.ARCHIVED},
     TaskState.EXECUTING: {TaskState.EXECUTED, TaskState.FAILED},
     TaskState.EXECUTED: {TaskState.ARCHIVED},
-    TaskState.FAILED: {TaskState.ASSIGNED, TaskState.CREATED, TaskState.ARCHIVED},
+    TaskState.FAILED: {TaskState.ASSIGNED, TaskState.ARCHIVED},
     TaskState.ARCHIVED: set(),
 }
 
@@ -244,9 +244,11 @@ class AuditLog:
               limit: int = 100) -> list[dict]:
         where, params = [], []
         if task_id:
-            where.append("task_id=?"); params.append(task_id)
+            where.append("task_id=?")
+            params.append(task_id)
         if actor:
-            where.append("actor=?"); params.append(actor)
+            where.append("actor=?")
+            params.append(actor)
         clause = f"WHERE {' AND '.join(where)}" if where else ""
         rows = self.db.execute(
             f"SELECT * FROM audit {clause} ORDER BY timestamp DESC LIMIT ?",
@@ -667,10 +669,8 @@ class Runtime:
             self.transition_task(task.id, TaskState.FAILED,
                                  actor="kernel", reason=f"Max retries ({max_retries}): {error}")
         else:
-            self.transition_task(task.id, TaskState.FAILED,
-                                 actor="kernel", reason=f"Retry ({retries+1}/{max_retries}): {error}")
             self.transition_task(task.id, TaskState.CREATED,
-                                 actor="kernel", reason=f"Reset for retry ({retries+1}/{max_retries})")
+                                 actor="kernel", reason=f"Retry ({retries+1}/{max_retries}): {error}")
 
     def summary(self) -> str:
         active = sum(1 for t in self.tasks.values()

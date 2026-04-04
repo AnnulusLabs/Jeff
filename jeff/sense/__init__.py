@@ -15,7 +15,6 @@ AnnulusLabs LLC · April 2026
 
 import asyncio
 import hashlib
-import json
 import time
 import sqlite3
 import logging
@@ -271,7 +270,7 @@ async def _test():
     topic = detect_topic(convo)
     print(f"Topic: {topic.primary} ({topic.confidence:.0%})")
     print(f"Keywords: {topic.keywords}")
-    print(f"Prefetching...")
+    print("Prefetching...")
     await prefetch(topic.primary, buf, max_fetches=3)
     print(f"L2: {buf.count()} chunks ({buf.size_mb():.1f}MB)")
     chunks = page(buf, topic, query="collision physics", token_budget=2000)

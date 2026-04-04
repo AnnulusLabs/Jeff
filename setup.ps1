@@ -29,9 +29,9 @@ Write-Host "[2/5] Installing Jeff..."
 $jeffDir = "A:\AI\jeff-release"
 if (Test-Path $jeffDir) {
     Push-Location $jeffDir
-    pip install -e . 2>$null
+    pip install -e ".[workplay]" --break-system-packages 2>$null
     if ($LASTEXITCODE -ne 0) {
-        pip install -e .
+        pip install -e ".[workplay]"
     }
     Pop-Location
     Write-Host "  Jeff installed from $jeffDir"

@@ -30,9 +30,7 @@ import sys
 import time
 import random
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
-from enum import Enum
 
 
 # Platform-aware non-blocking input
@@ -439,10 +437,14 @@ def jeff_miner(pool: TaskPool):
                 break
 
             dx, dy = 0, 0
-            if key in ("w", "up"): dy = -1
-            elif key in ("s", "down"): dy = 1
-            elif key in ("a", "left"): dx = -1
-            elif key in ("d", "right"): dx = 1
+            if key in ("w", "up"):
+                dy = -1
+            elif key in ("s", "down"):
+                dy = 1
+            elif key in ("a", "left"):
+                dx = -1
+            elif key in ("d", "right"):
+                dx = 1
             elif key == "dig":
                 # Mine current position
                 if (px, py) in mine:

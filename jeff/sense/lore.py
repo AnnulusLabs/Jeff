@@ -9,9 +9,7 @@ Gripe #29: AI knows Python but not YOUR codebase.
 AnnulusLabs LLC · April 2026
 """
 
-import os
 import re
-import json
 import sqlite3
 import subprocess
 import hashlib

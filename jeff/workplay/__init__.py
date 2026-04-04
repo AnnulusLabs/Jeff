@@ -15,18 +15,16 @@ AnnulusLabs LLC · April 2026
 
 import os
 import json
-import time
 import hmac
 import hashlib
-import asyncio
+import time
 from datetime import datetime, timezone
-from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from jeff.workplay.classify import classify_pr, Classification
+from jeff.workplay.classify import classify_pr
 from jeff.workplay.themes import render_page, render_diff, THEMES
 from jeff.workplay.telemetry import TelemetryStore, Decision
 
@@ -42,14 +40,29 @@ app = FastAPI(title="WorkPlay", version="1.0.0",
 telemetry = TelemetryStore()
 
 # In-memory PR cache (MVP — SQLite in production)
-pr_cache: dict[int, dict] = {}
-classification_cache: dict[int, dict] = {}
+pr_cache: dict[str, dict] = {}
+classification_cache: dict[str, dict] = {}
 
 # Narrative fatigue tracker
 narrative_counts: dict[str, int] = {}  # template → use count
 
 
 # ── GitHub Client ────────────────────────────────────────────────
+
+def _key(owner: str, repo: str, pr_number: int) -> str:
+    return f"{owner.strip().lower()}/{repo.strip().lower()}#{pr_number}"
+
+
+def _repo(repo_full_name: str) -> tuple[str, str]:
+    return tuple(repo_full_name.split("/", 1)) if "/" in repo_full_name else ("", "")
+
+
+def _cached(pr_number: int, repo_full_name: str = "") -> dict:
+    if repo_full_name:
+        return pr_cache.get(_key(*_repo(repo_full_name), pr_number), {})
+    hits = [pr for key, pr in pr_cache.items() if key.endswith(f"#{pr_number}")]
+    return hits[0] if len(hits) == 1 else {}
+
 
 def gh_headers() -> dict:
     headers = {"Accept": "application/vnd.github.v3+json"}
@@ -58,10 +71,13 @@ def gh_headers() -> dict:
     return headers
 
 
-async def fetch_pr(owner: str, repo: str, pr_number: int) -> dict:
+async def fetch_pr(owner: str, repo: str, pr_number: int, force: bool = False) -> dict:
     """Fetch PR data + files from GitHub API."""
-    if pr_number in pr_cache:
-        return pr_cache[pr_number]
+    key = _key(owner, repo, pr_number)
+    if not force and key in pr_cache:
+        cached = pr_cache[key]
+        if time.time() - cached.get("_fetched_at", 0) < 300:
+            return cached
 
     base = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
     async with httpx.AsyncClient(timeout=30) as client:
@@ -73,8 +89,13 @@ async def fetch_pr(owner: str, repo: str, pr_number: int) -> dict:
         files_resp = await client.get(f"{base}/files", headers=gh_headers())
         files = files_resp.json() if files_resp.status_code == 200 else []
         pr_data["files"] = files
+        pr_data["_owner"] = owner
+        pr_data["_repo"] = repo
+        pr_data["_repo_full_name"] = f"{owner}/{repo}"
+        pr_data["_fetched_at"] = time.time()
 
-    pr_cache[pr_number] = pr_data
+    pr_cache[key] = pr_data
+    classification_cache.pop(key, None)
     return pr_data
 
 
@@ -180,6 +201,8 @@ async def index():
 async def review(request: Request, pr_number: int = 0):
     """Review a PR in themed or work view."""
     theme = request.query_params.get("theme", DEFAULT_THEME)
+    repo_full_name = request.query_params.get("repo_full_name", "")
+    return_theme = request.query_params.get("return_theme", "")
 
     # Parse PR URL from form
     pr_url = request.query_params.get("pr_url", "")
@@ -204,10 +227,11 @@ async def review(request: Request, pr_number: int = 0):
             return HTMLResponse("Format: owner/repo#123 or GitHub PR URL", 400)
     elif pr_number > 0:
         # Use cached PR data
-        if pr_number in pr_cache:
-            pr_data = pr_cache[pr_number]
+        owner, repo = _repo(repo_full_name)
+        pr_data = _cached(pr_number, repo_full_name)
+        if pr_data and (not owner or not repo):
             full_name = pr_data.get("base", {}).get("repo", {}).get("full_name", "/")
-            owner, repo = full_name.split("/", 1) if "/" in full_name else ("", "")
+            owner, repo = _repo(full_name)
 
     if not owner or not repo or not pr_number:
         return HTMLResponse("Missing PR info. Use: owner/repo#123", 400)
@@ -218,9 +242,10 @@ async def review(request: Request, pr_number: int = 0):
         return HTMLResponse(f"Error: {pr_data['error']}", 500)
 
     # Classify
-    if pr_number not in classification_cache:
+    key = _key(owner, repo, pr_number)
+    if key not in classification_cache:
         cls = classify_pr(pr_data)
-        classification_cache[pr_number] = {
+        classification_cache[key] = {
             "basin": cls.basin,
             "template": cls.template,
             "fidelity_tier": cls.fidelity_tier,
@@ -231,7 +256,7 @@ async def review(request: Request, pr_number: int = 0):
             "reason": cls.reason,
         }
 
-    classification = classification_cache[pr_number]
+    classification = dict(classification_cache[key])
 
     # Auto-select theme from classification if not specified
     if theme not in THEMES:
@@ -249,14 +274,27 @@ async def review(request: Request, pr_number: int = 0):
     # Store owner/repo for API calls
     pr_data["_owner"] = owner
     pr_data["_repo"] = repo
+    pr_data["_repo_full_name"] = f"{owner}/{repo}"
+    if theme != "work":
+        return_theme = theme
+    elif return_theme not in THEMES or return_theme == "work":
+        return_theme = classification.get("template", DEFAULT_THEME)
 
-    return HTMLResponse(render_page(pr_data, classification, theme))
+    return HTMLResponse(
+        render_page(
+            pr_data,
+            classification,
+            theme,
+            repo_full_name=pr_data["_repo_full_name"],
+            return_theme=return_theme,
+        )
+    )
 
 
 @app.get("/api/diff/{pr_number}")
 async def api_diff(pr_number: int, request: Request):
     """Fetch and render themed diff."""
-    pr_data = pr_cache.get(pr_number, {})
+    pr_data = _cached(pr_number, request.query_params.get("repo_full_name", ""))
     owner = pr_data.get("_owner", "")
     repo = pr_data.get("_repo", "")
     theme = request.query_params.get("theme", DEFAULT_THEME)
@@ -269,9 +307,9 @@ async def api_diff(pr_number: int, request: Request):
 
 
 @app.get("/api/issues/{pr_number}")
-async def api_issues(pr_number: int):
+async def api_issues(pr_number: int, request: Request):
     """Gate-identified issues (stub — wire to jeff/gate in production)."""
-    pr_data = pr_cache.get(pr_number, {})
+    pr_data = _cached(pr_number, request.query_params.get("repo_full_name", ""))
     issues = []
 
     for f in pr_data.get("files", []):
@@ -285,8 +323,9 @@ async def api_issues(pr_number: int):
 
 
 @app.get("/api/tests/{pr_number}")
-async def api_tests(pr_number: int):
+async def api_tests(pr_number: int, request: Request):
     """Run tests (stub — wire to jeff/nerve in production)."""
+    _cached(pr_number, request.query_params.get("repo_full_name", ""))
     return JSONResponse({"result": "Test execution not wired for MVP. "
                                     "Wire to jeff run 'pytest' for production."})
 
@@ -298,6 +337,7 @@ async def api_decide(request: Request):
 
     pr_number = data.get("pr_number", 0)
     decision_str = data.get("decision", "")
+    pr_data = _cached(pr_number, data.get("repo_full_name", ""))
 
     # Record telemetry
     d = Decision(
@@ -315,12 +355,14 @@ async def api_decide(request: Request):
         fidelity_tier=data.get("fidelity_tier", 2),
         template_used=data.get("view_mode", ""),
         kerf_confidence=data.get("kerf_confidence", 0),
-        basin=classification_cache.get(pr_number, {}).get("basin", ""),
+        basin=classification_cache.get(
+            _key(pr_data.get("_owner", ""), pr_data.get("_repo", ""), pr_number),
+            {},
+        ).get("basin", ""),
     )
     telemetry.record(d)
 
     # Push to GitHub if token available
-    pr_data = pr_cache.get(pr_number, {})
     owner = pr_data.get("_owner", "")
     repo = pr_data.get("_repo", "")
     gh_result = {}
@@ -361,9 +403,9 @@ async def github_webhook(request: Request):
         if pr_number:
             owner = data.get("repository", {}).get("owner", {}).get("login", "")
             repo_name = data.get("repository", {}).get("name", "")
-            pr_data = await fetch_pr(owner, repo_name, pr_number)
+            pr_data = await fetch_pr(owner, repo_name, pr_number, force=True)
             cls = classify_pr(pr_data)
-            classification_cache[pr_number] = {
+            classification_cache[_key(owner, repo_name, pr_number)] = {
                 "basin": cls.basin, "template": cls.template,
                 "fidelity_tier": cls.fidelity_tier, "confidence": cls.confidence,
                 "title": cls.title, "narrative": cls.narrative,

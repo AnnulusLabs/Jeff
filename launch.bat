@@ -25,7 +25,7 @@ REM Check if jeff is installed
 where jeff >nul 2>&1
 if %errorlevel% neq 0 (
     echo [!] Jeff not installed. Installing...
-    pip install -e A:\AI\jeff-release
+    pip install -e "A:\AI\jeff-release[workplay]"
 )
 
 REM Launch
