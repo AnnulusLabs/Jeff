@@ -22,7 +22,6 @@ AnnulusLabs LLC · April 2026
 """
 
 import os
-import sys
 import json
 import subprocess
 import hashlib
@@ -142,7 +141,7 @@ def install_package(package: str, timeout: int = 60) -> bool:
     """Install a PyPI package. Returns success."""
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", package, "-q"],
+            ["pip", "install", package, "--break-system-packages", "-q"],
             capture_output=True, text=True, timeout=timeout)
         return result.returncode == 0
     except Exception:

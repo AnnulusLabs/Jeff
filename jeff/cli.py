@@ -266,6 +266,25 @@ def arcade():
 
 
 @main.command()
+@click.option("--port", "-p", default=8421)
+@click.option("--theme", "-t", default="medieval",
+              type=click.Choice(["medieval", "scifi", "minimal", "work"]))
+def workplay(port, theme):
+    """The game IS the work. Launch themed PR review."""
+    os.environ["WORKPLAY_THEME"] = theme
+    os.environ["WORKPLAY_PORT"] = str(port)
+    try:
+        from jeff.workplay import serve
+    except ModuleNotFoundError as exc:
+        if exc.name in {"fastapi", "pydantic", "starlette", "uvicorn"}:
+            raise click.ClickException(
+                "WorkPlay needs its extra deps. Install with: pip install -e '.[workplay]'"
+            ) from exc
+        raise
+    serve(port=port)
+
+
+@main.command()
 def version():
     """Version."""
     skin.say(f"Jeff v{__version__}")
