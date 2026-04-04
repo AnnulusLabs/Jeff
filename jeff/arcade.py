@@ -34,34 +34,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 
-# Platform-aware non-blocking input
-if os.name == 'nt':
-    import msvcrt
-    def _input_ready(timeout):
-        """Check for input on Windows."""
-        import time as _t
-        end = _t.monotonic() + timeout
-        while _t.monotonic() < end:
-            if msvcrt.kbhit():
-                return True
-            _t.sleep(0.02)
-        return False
-    def _read_input():
-        """Read a line on Windows."""
-        chars = []
-        while msvcrt.kbhit():
-            ch = msvcrt.getwch()
-            if ch in ('\r', '\n'):
-                break
-            chars.append(ch)
-        return ''.join(chars)
-else:
-    import select as _select
-    def _input_ready(timeout):
-        return bool(_select.select([sys.stdin], [], [], timeout)[0])
-    def _read_input():
-        return sys.stdin.readline().strip()
-
 C = {
     "r": "\033[0m", "b": "\033[1m", "dim": "\033[2m",
     "cyan": "\033[36m", "green": "\033[32m", "yellow": "\033[33m",
@@ -161,6 +133,8 @@ FLAPPY_HELP = """
 
 def flappy_jeff(pool: TaskPool):
     """Flappy Bird but each pipe cleared runs a real task."""
+    import select
+
     WIDTH, HEIGHT = 60, 20
     bird_x, bird_y = 10, HEIGHT // 2
     velocity = 0
@@ -253,8 +227,8 @@ def flappy_jeff(pool: TaskPool):
         render_frame()
 
         # Input
-        if _input_ready(0.12):
-            key = _read_input()
+        if sys.stdin in select.select([sys.stdin], [], [], 0.12)[0]:
+            key = sys.stdin.readline().strip()
             if key == "q":
                 break
             velocity = flap_power
@@ -381,6 +355,8 @@ MINER_HELP = """
 
 def jeff_miner(pool: TaskPool):
     """Dig through layers. Each gem = a real code finding."""
+    import select
+
     WIDTH, HEIGHT = 40, 20
     px, py = WIDTH // 2, 0
     depth = 0
@@ -434,8 +410,8 @@ def jeff_miner(pool: TaskPool):
     render()
 
     while stamina > 0:
-        if _input_ready(0.2):
-            key = _read_input().lower()
+        if sys.stdin in select.select([sys.stdin], [], [], 0.2)[0]:
+            key = sys.stdin.readline().strip().lower()
             if key == "q":
                 break
 

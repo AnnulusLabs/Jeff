@@ -25,26 +25,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-# Platform-aware non-blocking input
-if os.name == 'nt':
-    import msvcrt
-    def _input_ready(timeout):
-        import time as _t
-        end = _t.monotonic() + timeout
-        while _t.monotonic() < end:
-            if msvcrt.kbhit():
-                return True
-            _t.sleep(0.02)
-        return False
-    def _read_line():
-        return input()
-else:
-    import select as _select
-    def _input_ready(timeout):
-        return bool(_select.select([sys.stdin], [], [], timeout)[0])
-    def _read_line():
-        return sys.stdin.readline().strip()
-
 # ── Game Constants ───────────────────────────────────────────────────
 
 TICK_RATE = 0.5
@@ -448,7 +428,8 @@ def main():
         message = ""
 
         # Non-blocking input with timeout
-        if _input_ready(TICK_RATE):
+        import select
+        if sys.stdin in select.select([sys.stdin], [], [], TICK_RATE)[0]:
             try:
                 raw = sys.stdin.readline().strip()
             except EOFError:
