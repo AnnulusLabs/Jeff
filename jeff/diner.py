@@ -22,6 +22,23 @@ import random
 from dataclasses import dataclass, field
 from enum import Enum
 
+
+# Platform-aware non-blocking input
+if os.name == 'nt':
+    import msvcrt
+    def _input_ready(timeout):
+        import time as _t
+        end = _t.monotonic() + timeout
+        while _t.monotonic() < end:
+            if msvcrt.kbhit():
+                return True
+            _t.sleep(0.02)
+        return False
+else:
+    import select as _select
+    def _input_ready(timeout):
+        return bool(_select.select([sys.stdin], [], [], timeout)[0])
+
 # ── Game Constants ───────────────────────────────────────────────────
 
 TICK_RATE = 0.5
@@ -425,8 +442,7 @@ def main():
         message = ""
 
         # Non-blocking input with timeout
-        import select
-        if sys.stdin in select.select([sys.stdin], [], [], TICK_RATE)[0]:
+        if _input_ready(TICK_RATE):
             try:
                 raw = sys.stdin.readline().strip()
             except EOFError:
