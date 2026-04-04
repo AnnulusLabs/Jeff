@@ -435,7 +435,6 @@ def render_page(pr: dict, classification: dict, theme_name: str = "medieval",
 
 def render_diff(diff_text: str, theme_name: str = "medieval") -> str:
     """Render a diff with themed colors."""
-    theme = THEMES.get(theme_name, THEMES["work"])
     lines = []
     for line in diff_text.split("\n"):
         if line.startswith("+") and not line.startswith("+++"):

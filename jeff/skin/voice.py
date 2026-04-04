@@ -18,13 +18,12 @@ Optional: pip install jeff-code[voice]
 AnnulusLabs LLC · April 2026
 """
 
+import importlib.util
 import subprocess
 import shutil
 import wave
 import struct
-import math
 import logging
-import os
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -66,12 +65,8 @@ def detect_backend(preferred: str = "auto") -> str:
         return preferred
 
     # Piper — best quality
-    try:
-        import piper
-        if PIPER_MODEL_DIR.exists() and any(PIPER_MODEL_DIR.glob("*.onnx")):
-            return "piper"
-    except ImportError:
-        pass
+    if importlib.util.find_spec("piper") and PIPER_MODEL_DIR.exists() and any(PIPER_MODEL_DIR.glob("*.onnx")):
+        return "piper"
 
     # espeak-ng — the 90s robot
     if shutil.which("espeak-ng") or shutil.which("espeak"):

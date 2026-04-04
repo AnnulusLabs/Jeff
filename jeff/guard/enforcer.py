@@ -18,9 +18,9 @@ from jeff.guard.basin import (
     classify, BasinAnalysis, KHistoryTracker,
     AccessGate, create_access_gate, RiskLevel
 )
-from jeff.guard.sandbox import Sandbox, SandboxPolicy, POLICIES
+from jeff.guard.sandbox import Sandbox, POLICIES
 from jeff.guard.firewall import scan as firewall_scan, ScanResult
-from jeff.guard import check as dbad_check, GuardResult, Ruling
+from jeff.guard import check as dbad_check, Ruling
 
 
 @dataclass
@@ -178,7 +178,6 @@ class SecurityEnforcer:
 
     def check_content(self, content: str, source: str = "L3") -> SecurityDecision:
         """Convenience: check external content (L3, uploads, URLs)."""
-        text = f"Process external content from {source}"
         return self.check(content)
 
     def stats(self) -> dict:

@@ -8,10 +8,8 @@ AnnulusLabs LLC · April 2026
 """
 
 import csv
-import json
-import time
 import sqlite3
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from pathlib import Path
 
 TELEMETRY_DIR = Path.home() / ".jeff" / "workplay"

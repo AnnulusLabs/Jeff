@@ -17,6 +17,7 @@ import os
 import json
 import hmac
 import hashlib
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -70,11 +71,13 @@ def gh_headers() -> dict:
     return headers
 
 
-async def fetch_pr(owner: str, repo: str, pr_number: int) -> dict:
+async def fetch_pr(owner: str, repo: str, pr_number: int, force: bool = False) -> dict:
     """Fetch PR data + files from GitHub API."""
     key = _key(owner, repo, pr_number)
-    if key in pr_cache:
-        return pr_cache[key]
+    if not force and key in pr_cache:
+        cached = pr_cache[key]
+        if time.time() - cached.get("_fetched_at", 0) < 300:
+            return cached
 
     base = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
     async with httpx.AsyncClient(timeout=30) as client:
@@ -89,8 +92,10 @@ async def fetch_pr(owner: str, repo: str, pr_number: int) -> dict:
         pr_data["_owner"] = owner
         pr_data["_repo"] = repo
         pr_data["_repo_full_name"] = f"{owner}/{repo}"
+        pr_data["_fetched_at"] = time.time()
 
     pr_cache[key] = pr_data
+    classification_cache.pop(key, None)
     return pr_data
 
 
@@ -398,7 +403,7 @@ async def github_webhook(request: Request):
         if pr_number:
             owner = data.get("repository", {}).get("owner", {}).get("login", "")
             repo_name = data.get("repository", {}).get("name", "")
-            pr_data = await fetch_pr(owner, repo_name, pr_number)
+            pr_data = await fetch_pr(owner, repo_name, pr_number, force=True)
             cls = classify_pr(pr_data)
             classification_cache[_key(owner, repo_name, pr_number)] = {
                 "basin": cls.basin, "template": cls.template,

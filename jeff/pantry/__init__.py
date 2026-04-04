@@ -1,7 +1,6 @@
 """jeff.pantry — Local model management via Ollama. Where Jeff keeps the supplies."""
 
 import httpx
-import json
 from dataclasses import dataclass, field
 
 OLLAMA_URL = "http://localhost:11434"

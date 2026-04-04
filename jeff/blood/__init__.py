@@ -31,7 +31,7 @@ import time
 import hashlib
 import sqlite3
 import threading
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -244,9 +244,11 @@ class AuditLog:
               limit: int = 100) -> list[dict]:
         where, params = [], []
         if task_id:
-            where.append("task_id=?"); params.append(task_id)
+            where.append("task_id=?")
+            params.append(task_id)
         if actor:
-            where.append("actor=?"); params.append(actor)
+            where.append("actor=?")
+            params.append(actor)
         clause = f"WHERE {' AND '.join(where)}" if where else ""
         rows = self.db.execute(
             f"SELECT * FROM audit {clause} ORDER BY timestamp DESC LIMIT ?",

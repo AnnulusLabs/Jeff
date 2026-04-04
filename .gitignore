@@ -9,3 +9,4 @@ build/
 .pytest_cache/
 .jeff/
 *.wav
+jeff/config.py

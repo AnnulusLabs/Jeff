@@ -14,9 +14,7 @@ The right answer: classify what a request CAN DO, not what it SAYS.
 From KERF Shield architecture — AnnulusLabs LLC · April 2026
 """
 
-import hashlib
 import time
-import math
 from dataclasses import dataclass, field
 from enum import Enum
 

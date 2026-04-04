@@ -21,10 +21,8 @@ Gripe #28 extension: Don't just remember dead ends — build past them.
 AnnulusLabs LLC · April 2026
 """
 
-import os
 import json
 import subprocess
-import hashlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
