@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+
 # Platform-aware non-blocking input
 if os.name == 'nt':
     import msvcrt
@@ -36,14 +37,10 @@ if os.name == 'nt':
                 return True
             _t.sleep(0.02)
         return False
-    def _read_line():
-        return input()
 else:
     import select as _select
     def _input_ready(timeout):
         return bool(_select.select([sys.stdin], [], [], timeout)[0])
-    def _read_line():
-        return sys.stdin.readline().strip()
 
 # ── Game Constants ───────────────────────────────────────────────────
 

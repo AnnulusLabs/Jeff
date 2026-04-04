@@ -266,6 +266,18 @@ def arcade():
 
 
 @main.command()
+@click.option("--port", "-p", default=8421)
+@click.option("--theme", "-t", default="medieval",
+              type=click.Choice(["medieval", "scifi", "minimal", "work"]))
+def workplay(port, theme):
+    """The game IS the work. Launch themed PR review."""
+    os.environ["WORKPLAY_THEME"] = theme
+    os.environ["WORKPLAY_PORT"] = str(port)
+    from jeff.workplay import serve
+    serve(port=port)
+
+
+@main.command()
 def version():
     """Version."""
     skin.say(f"Jeff v{__version__}")

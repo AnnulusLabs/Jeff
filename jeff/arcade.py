@@ -34,11 +34,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 
+
 # Platform-aware non-blocking input
 if os.name == 'nt':
     import msvcrt
     def _input_ready(timeout):
-        """Check for input on Windows."""
         import time as _t
         end = _t.monotonic() + timeout
         while _t.monotonic() < end:
@@ -47,7 +47,6 @@ if os.name == 'nt':
             _t.sleep(0.02)
         return False
     def _read_input():
-        """Read a line on Windows."""
         chars = []
         while msvcrt.kbhit():
             ch = msvcrt.getwch()
