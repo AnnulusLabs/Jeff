@@ -1,7 +1,11 @@
 """jeff.gate — Quality gate. 4-line atomic check. Maps bugs to cognitive flaws."""
 
+import json
+import os
+import time
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 
 class CognitiveFlaw(Enum):
@@ -53,7 +57,9 @@ def check(code: str, context: str = "") -> GateResult:
                 flaws.append(CognitiveFlaw.ASSUMPTION)
                 break
 
-    return GateResult(passed=len(flaws) == 0, flaws=flaws)
+    result = GateResult(passed=len(flaws) == 0, flaws=_dedupe(flaws))
+    retain(result, context=context, sample=code)
+    return result
 
 
 def gate_prompt() -> str:
@@ -70,3 +76,51 @@ def format_result(result: GateResult) -> str:
         return "Gate passed."
     flaw_list = ", ".join(f.value for f in result.flaws)
     return f"Gate failed. Flaws: {flaw_list}"
+
+
+def retain(result: GateResult, context: str = "", sample: str = "") -> int:
+    """Retain gate-generated K instead of discarding it."""
+    if result.passed or not result.flaws:
+        return 0
+    path = k_history_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({
+            "timestamp": time.time(),
+            "flaws": [flaw.name for flaw in result.flaws],
+            "context": context[:200],
+            "sample": sample[:200],
+            "notes": result.notes,
+        }) + "\n")
+    return len(result.flaws)
+
+
+def history(limit: int = 100) -> list[dict]:
+    path = k_history_path()
+    if not path.exists():
+        return []
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return rows
+
+
+def flaw_history(limit: int = 100) -> list[CognitiveFlaw]:
+    flaws = []
+    for row in history(limit):
+        for name in row.get("flaws", []):
+            if name in CognitiveFlaw.__members__:
+                flaws.append(CognitiveFlaw[name])
+    return flaws
+
+
+def k_history_path() -> Path:
+    root = Path(os.environ.get("JEFF_GATE_DIR", Path.home() / ".jeff" / "gate"))
+    return root / "k_history.jsonl"
+
+
+def _dedupe(flaws: list[CognitiveFlaw]) -> list[CognitiveFlaw]:
+    return list(dict.fromkeys(flaws))
