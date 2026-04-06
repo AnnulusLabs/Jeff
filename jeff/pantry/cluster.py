@@ -13,8 +13,11 @@ import httpx
 import time
 import socket
 import logging
+import re
 from dataclasses import dataclass, field
 from enum import Enum
+
+from jeff.mind.coherence import phi
 
 log = logging.getLogger("jeff.pantry.cluster")
 
@@ -290,7 +293,7 @@ class Cluster:
                         system: str | None = None) -> list[dict]:
         """BranchialAnalyzer: same prompt to multiple models, return all."""
         tasks = [self.chat(messages, model=m, system=system) for m in models]
-        return await asyncio.gather(*tasks, return_exceptions=True)
+        return _score_consensus(await asyncio.gather(*tasks, return_exceptions=True))
 
     # ── Status ───────────────────────────────────────────────────────
 
@@ -397,3 +400,45 @@ async def _test():
 
 if __name__ == "__main__":
     asyncio.run(_test())
+
+
+def _score_consensus(results: list[dict]) -> list[dict]:
+    entries = [r for r in results if isinstance(r, dict)]
+    if len(entries) < 2:
+        return results
+    texts = [entry.get("content", "") for entry in entries]
+    labels = _cluster_labels(texts)
+    coherence = phi(labels, alphabet_size=len(texts))
+    for entry, label, text in zip(entries, labels, texts):
+        entry["branchial_cluster"] = label
+        entry["branchial_phi"] = round(coherence, 4)
+        entry["branchial_weight"] = round(coherence * _centrality(text, texts), 4)
+    return results
+
+
+def _cluster_labels(texts: list[str], threshold: float = 0.55) -> list[int]:
+    labels, exemplars = [], []
+    for text in texts:
+        label = next(
+            (i for i, exemplar in enumerate(exemplars) if _similarity(text, exemplar) >= threshold),
+            None,
+        )
+        if label is None:
+            exemplars.append(text)
+            label = len(exemplars) - 1
+        labels.append(label)
+    return labels
+
+
+def _centrality(text: str, texts: list[str]) -> float:
+    if len(texts) < 2:
+        return 1.0
+    return sum(_similarity(text, other) for other in texts if other != text) / (len(texts) - 1)
+
+
+def _similarity(a: str, b: str) -> float:
+    a_words = set(re.findall(r"[a-z0-9_]+", a.lower()))
+    b_words = set(re.findall(r"[a-z0-9_]+", b.lower()))
+    if not a_words or not b_words:
+        return 1.0 if a == b else 0.0
+    return len(a_words & b_words) / len(a_words | b_words)

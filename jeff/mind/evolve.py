@@ -28,6 +28,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 
+from jeff.gate import CognitiveFlaw, GateResult, format_result
+from jeff.mind.coherence import awareness_integral, phi
+
 EVOLVE_DIR = Path.home() / ".jeff" / "evolve"
 K_HISTORY_FILE = EVOLVE_DIR / "k_history.json"
 STRATEGIES_FILE = EVOLVE_DIR / "strategies.json"
@@ -56,11 +59,13 @@ class KEntry:
     lesson: str
     severity: float = 0.0          # 0-1, how badly it failed
     applied: bool = False           # has this K been used to improve?
+    kind: str = ""
+    retention_weight: float = 0.0
     hash: str = ""
 
     def __post_init__(self):
         if not self.hash:
-            raw = f"{self.task}:{self.what_failed}:{self.lesson}"
+            raw = f"{self.task}:{self.kind}:{self.what_failed}:{self.lesson}"
             self.hash = hashlib.sha256(raw.encode()).hexdigest()[:12]
 
 
@@ -135,16 +140,18 @@ class EvolutionEngine:
             return result
 
         # Phase 2: TEST (gate)
-        passed, details = await _call(test_fn, output)
+        passed, details, flaws = self._normalize_test_result(await _call(test_fn, output))
         result.phase_results[Phase.TEST.value] = passed
 
         if not passed:
-            k = KEntry(timestamp=time.time(), phase="test", task=task,
-                       what_failed=details[:200],
-                       why="Gate check failed",
-                       lesson=self._extract_lesson(details),
-                       severity=0.6)
-            self._retain(k, result)
+            for flaw in flaws or [None]:
+                k = KEntry(timestamp=time.time(), phase="test", task=task,
+                           what_failed=details[:200],
+                           why="Gate check failed",
+                           lesson=self._extract_lesson(details),
+                           severity=0.6,
+                           kind=flaw.name if flaw else Phase.TEST.value)
+                self._retain(k, result)
             self._penalize_strategies(applicable)
 
         # Phase 3: JUDGE (pit crew consensus, optional)
@@ -196,10 +203,18 @@ class EvolutionEngine:
         # Deduplicate by hash
         if any(existing.hash == k.hash for existing in self.k_history):
             return
+        k.kind = k.kind or k.phase
+        k.retention_weight = phi(
+            self._k_types([*self.k_history, k]),
+            alphabet_size=len(CognitiveFlaw),
+        )
         self.k_history.append(k)
         result.k_generated.append(k)
         # Prune oldest if over limit
         if len(self.k_history) > MAX_K_HISTORY:
+            self.k_history.sort(
+                key=lambda entry: (entry.retention_weight, entry.severity, entry.timestamp)
+            )
             self.k_history = self.k_history[-MAX_K_HISTORY:]
 
     def recent_k(self, n: int = 20) -> list[KEntry]:
@@ -210,6 +225,17 @@ class EvolutionEngine:
 
     def unapplied_k(self) -> list[KEntry]:
         return [k for k in self.k_history if not k.applied]
+
+    def coherence(self) -> float:
+        return phi(self._k_types(), alphabet_size=len(CognitiveFlaw))
+
+    def awareness(self) -> float:
+        return awareness_integral(
+            [k.retention_weight for k in self.k_history],
+            [k.severity or 1.0 for k in self.k_history],
+            self._k_types(),
+            alphabet_size=len(CognitiveFlaw),
+        )
 
     # ── Strategy Management ──────────────────────────────────────────
 
@@ -269,6 +295,20 @@ class EvolutionEngine:
             return "Verify existence before access"
         return f"Investigate: {failure_details[:100]}"
 
+    def _k_types(self, entries: list[KEntry] | None = None) -> list[str]:
+        return [k.kind or k.phase for k in (entries or self.k_history)]
+
+    @staticmethod
+    def _normalize_test_result(test_output) -> tuple[bool, str, list[CognitiveFlaw]]:
+        if isinstance(test_output, GateResult):
+            return test_output.passed, format_result(test_output), test_output.flaws
+        if isinstance(test_output, tuple) and len(test_output) >= 2:
+            passed, details = test_output[:2]
+            if isinstance(details, GateResult):
+                return details.passed, format_result(details), details.flaws
+            return bool(passed), str(details), []
+        return bool(test_output), str(test_output), []
+
     @staticmethod
     def _similarity(a: str, b: str) -> float:
         """Quick token overlap similarity."""
@@ -294,7 +334,8 @@ class EvolutionEngine:
     def _save_k(self):
         data = [{"timestamp": k.timestamp, "phase": k.phase, "task": k.task,
                  "what_failed": k.what_failed, "why": k.why, "lesson": k.lesson,
-                 "severity": k.severity, "applied": k.applied, "hash": k.hash}
+                 "severity": k.severity, "applied": k.applied, "kind": k.kind,
+                 "retention_weight": k.retention_weight, "hash": k.hash}
                 for k in self.k_history]
         K_HISTORY_FILE.write_text(json.dumps(data, indent=2))
 
@@ -321,6 +362,8 @@ class EvolutionEngine:
         high_k = self.k_by_severity(0.5)
         return (f"K-history: {len(self.k_history)} entries "
                 f"({len(high_k)} high severity)\n"
+                f"Coherence phi: {self.coherence():.2f}\n"
+                f"Awareness A: {self.awareness():.2f}\n"
                 f"Strategies: {len(active_strats)} active "
                 f"(of {len(self.strategies)} total)\n"
                 f"Cycles completed: {self.cycle_count}\n"
