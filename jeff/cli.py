@@ -10,10 +10,12 @@ Commands:
     jeff audit        Quality gate check
     jeff local        Pantry inventory
     jeff cluster      Distributed nodes
+    jeff mcp list     Show MCP servers + tools
     jeff status       Current state
     jeff arcade       Play games. Ship code.
     jeff diner        Run the diner shift
     jeff relay        Bell status
+    jeff serve        Start Bell's MCP server
     jeff workplay     Themed PR review
     jeff version      Version
 """
@@ -23,7 +25,7 @@ import os
 import click
 from jeff import __version__
 from jeff import skin, bone, personality
-from jeff.nerve import dispatch, bash, tree, TOOLS
+from jeff.nerve import dispatch, bash, tree, TOOLS, list_mcp_inventory
 from jeff.pantry import chat, generate, list_models, is_available, PantryConfig, JEFF_SYSTEM
 from jeff.gate import CognitiveFlaw, check, count_flaws, gate_prompt, format_result
 
@@ -268,6 +270,30 @@ def cluster():
     asyncio.run(_show())
 
 
+@main.group()
+def mcp():
+    """Inspect Jeff's MCP surfaces."""
+
+
+@mcp.command("list")
+def mcp_list():
+    """Show local and external MCP tools."""
+    inventory = list_mcp_inventory()
+    skin.header("MCP")
+    skin.say("Local tools:")
+    for item in inventory["local"]:
+        desc = f" - {item['description']}" if item["description"] else ""
+        skin.say(f"  {item['server']}/{item['tool']}{desc}")
+    if not inventory["external"]:
+        skin.whisper("No external MCP servers configured.")
+        return
+    skin.say("External servers:")
+    for item in inventory["external"]:
+        skin.say(
+            f"  {item['server']} [{item['transport']}] {item['status']}: {item['tools']}"
+        )
+
+
 @main.command()
 def status():
     """Current workspace state."""
@@ -302,9 +328,24 @@ def diner():
 
 @main.command()
 def relay():
-    """Bell status. Honest until the relay exists."""
+    """Bell status."""
     from jeff.bell import summary
     skin.say(summary())
+
+
+@main.command()
+@click.option(
+    "--transport",
+    default="stdio",
+    type=click.Choice(["stdio", "http"]),
+    show_default=True,
+)
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=7331, show_default=True)
+def serve(transport, host, port):
+    """Start Bell's MCP server."""
+    from jeff.bell import serve as serve_bell
+    serve_bell(transport=transport, host=host, port=port)
 
 
 @main.command()

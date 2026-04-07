@@ -12,6 +12,8 @@ def test_ask_dont_tell_reframes_flat_statements():
     assert framed.endswith("This architecture is ready.")
 
 
-def test_bell_is_honest_about_status():
-    assert status()["implemented"] is False
-    assert "pending" in summary().lower()
+def test_bell_reports_live_server_surface():
+    bell = status()
+    assert bell["implemented"] is True
+    assert "stdio" == bell["default_transport"]
+    assert "mcp server" in summary().lower()
