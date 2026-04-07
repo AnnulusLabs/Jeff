@@ -351,6 +351,42 @@ def coherence():
 
 
 @main.command()
+@click.argument("path", default=".", required=False)
+@click.option("--critical-only", is_flag=True, default=False,
+              help="Show only critical (severity >= 8) findings")
+def umph(path, critical_only):
+    """Run UMPH signature scan against a directory."""
+    from jeff.guard.umph import (
+        critical_infections,
+        format_report,
+        scan_directory,
+        summarize,
+    )
+    skin.header("UMPH")
+    skin.whisper(f"Scanning {path}...")
+    infections = scan_directory(path)
+    if critical_only:
+        infections = critical_infections(infections)
+    summary = summarize(infections)
+    if summary["total"] == 0:
+        skin.done("No infections found.")
+        return
+    skin.say(f"Total: {summary['total']}")
+    skin.say(f"  critical: {summary['critical']}  high: {summary['high']}  "
+             f"medium: {summary['medium']}  low: {summary['low']}")
+    skin.say("")
+    if summary["critical"] > 0:
+        skin.alert(
+            personality.Level.ERROR,
+            f"{summary['critical']} critical findings:",
+        )
+        for inf in critical_infections(infections):
+            skin.say(f"  {inf}")
+    elif not critical_only:
+        skin.say(format_report(infections))
+
+
+@main.command()
 @click.argument("query", nargs=-1)
 @click.option("--pipeline", "-p", default=None, type=click.Choice(["episodic", "procedural", "semantic"]))
 @click.option("--limit", "-n", default=20)

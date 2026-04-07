@@ -205,13 +205,23 @@ class AuditEvent:
 
 
 class AuditLog:
-    """Immutable, structured audit trail. Append-only."""
+    """Immutable, structured audit trail. Append-only.
+
+    Optional provenance tracker: if wired, every audit event also gets
+    a W3C PROV-DM provenance record that can be queried by actor, source,
+    or lineage. Use `set_provenance_tracker()` to enable.
+    """
 
     def __init__(self, db_path: Path = AUDIT_DB):
         BLOOD_DIR.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(str(db_path), check_same_thread=False)
         self._init_db()
         self._lock = threading.Lock()
+        self._provenance = None  # Optional ProvenanceTracker
+
+    def set_provenance_tracker(self, tracker) -> None:
+        """Attach a ProvenanceTracker. Audit events will auto-record provenance."""
+        self._provenance = tracker
 
     def _init_db(self):
         self.db.execute("""
@@ -239,6 +249,27 @@ class AuditLog:
                  event.confidence, event.state_before, event.state_after,
                  json.dumps(event.metadata)))
             self.db.commit()
+        # Auto-record provenance if a tracker is attached.
+        if self._provenance is not None:
+            content = f"{event.action}:{event.task_id}:{event.decision}"
+            try:
+                from jeff.blood.provenance import EntityType
+                self._provenance.record(
+                    content=content,
+                    source=event.action,
+                    author=event.actor,
+                    entity_type=EntityType.ACTION,
+                    context={
+                        "task_id": event.task_id,
+                        "decision": event.decision,
+                        "confidence": event.confidence,
+                        "state_before": event.state_before,
+                        "state_after": event.state_after,
+                    },
+                )
+            except Exception:
+                # Provenance is best-effort — never block audit on tracker errors.
+                pass
 
     def query(self, task_id: str = "", actor: str = "",
               limit: int = 100) -> list[dict]:

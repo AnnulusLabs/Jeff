@@ -15,6 +15,7 @@ def test_bell_status_and_summary():
     assert bell["network_transport"] == "streamable-http"
     assert {"jeff_run", "jeff_audit", "jeff_ask", "jeff_status"} <= set(bell["tools"])
     assert {"jeff_k_history", "jeff_flaw_count", "jeff_coherence", "jeff_session"} <= set(bell["tools"])
+    assert "jeff_umph_scan" in set(bell["tools"])
     assert "jeff serve --transport http" in summary()
 
 

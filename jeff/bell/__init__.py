@@ -19,6 +19,7 @@ DEFAULT_PORT = 7331
 BELL_TOOLS = [
     "jeff_run", "jeff_audit", "jeff_ask", "jeff_status",
     "jeff_k_history", "jeff_flaw_count", "jeff_coherence", "jeff_session",
+    "jeff_umph_scan",
 ]
 
 
@@ -196,6 +197,44 @@ def _build_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> FastMCP
             convergence_rate=round(cb, 4),
             k_count=len(engine.k_history),
             strategy_count=len(engine.strategies),
+        )
+
+    @app.tool(structured_output=True)
+    def jeff_umph_scan(
+        path: str = "",
+        critical_only: bool = False,
+    ) -> dict[str, str | int | bool]:
+        """Run UMPH signature scan on a file or directory."""
+        from pathlib import Path
+        from jeff.guard.umph import (
+            critical_infections,
+            format_report,
+            scan_directory,
+            scan_file,
+            summarize,
+        )
+        target = Path(path or os.getcwd())
+        if not target.exists():
+            return _payload(
+                "jeff_umph_scan", False,
+                error=f"Path not found: {target}",
+            )
+        if target.is_file():
+            infections = scan_file(target)
+        else:
+            infections = scan_directory(target)
+        if critical_only:
+            infections = critical_infections(infections)
+        summary = summarize(infections)
+        return _payload(
+            "jeff_umph_scan",
+            True,
+            output=format_report(infections),
+            total=summary["total"],
+            critical=summary["critical"],
+            high=summary["high"],
+            medium=summary["medium"],
+            low=summary["low"],
         )
 
     @app.tool(structured_output=True)
