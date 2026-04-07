@@ -1,0 +1,43 @@
+graph LR
+    subgraph "blood — The Kernel"
+        RT[Runtime] --> TSM[Task State Machine]
+        RT --> SG[SpawnGuard]
+        RT --> TQ[TaskQueue]
+        RT --> AL[AuditLog]
+        RT --> AP[AuthorityPolicy]
+        RT --> TP[ToolPolicy]
+        RT --> CB[ContextBudget]
+        RT --> EP[EvolutionPolicy]
+
+        TSM --> |"enforced"| STATES
+
+        subgraph STATES [State Transitions]
+            CREATED --> ASSIGNED
+            ASSIGNED --> IN_PROGRESS
+            IN_PROGRESS --> AWAITING_REVIEW
+            AWAITING_REVIEW --> REVIEWED
+            REVIEWED --> APPROVED
+            REVIEWED --> REJECTED
+            APPROVED --> |"HUMAN ONLY"| EXECUTING
+            EXECUTING --> EXECUTED
+            EXECUTED --> ARCHIVED
+            IN_PROGRESS --> FAILED
+            FAILED --> CREATED
+        end
+
+        SG --> |"max 3/task"| LIMITS[Spawn Limits]
+        SG --> |"max depth 2"| LIMITS
+        AL --> |"SQLite"| DB[(audit.db)]
+        TQ --> |"bounded"| BP[Backpressure]
+
+        GV[GateVerdict] --> |"majority vote"| VOTES
+        subgraph VOTES [Gate Voting]
+            PRE[Pre-check]
+            DOMAIN[Domain-check]
+            POST[Post-check]
+        end
+    end
+
+    style RT fill:#660000,color:#fff
+    style EXECUTING fill:#c9a84c,color:#1a1410
+    style DB fill:#333,color:#fff

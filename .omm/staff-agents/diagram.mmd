@@ -1,0 +1,25 @@
+graph TB
+    subgraph "staff — Agent Orchestration"
+        BIRTH[birth template + task] --> AGENT[Agent]
+
+        subgraph TEMPLATES [Birth Templates]
+            CODER[coder — writes code]
+            RESEARCHER[researcher — finds info]
+            WRITER[writer — documents]
+            REVIEWER[reviewer — checks quality]
+            PLANNER[planner — roadmaps]
+            SCOUT[scout — explores]
+            ARCHITECT[architect — intent-first]
+            SCHOLAR[scholar — papers to code]
+            JANITOR[janitor — finds rot]
+        end
+
+        AGENT --> |"parallel"| TEAM[team_task]
+        AGENT --> |"sequential"| PIPE[pipeline]
+        AGENT --> |"reports to"| HUMAN[Human or Parent Agent]
+
+        AGENT --> |"K accumulates"| K[K-History<br/>Lessons learned]
+    end
+
+    style BIRTH fill:#4a7c59,color:#fff
+    style HUMAN fill:#c9a84c,color:#1a1410

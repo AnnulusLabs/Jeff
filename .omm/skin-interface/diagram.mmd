@@ -1,0 +1,17 @@
+graph LR
+    subgraph "skin — Interface Layer"
+        TERMINAL[skin/__init__.py<br/>Rich Terminal UI]
+        VOICE[skin/voice.py<br/>Robot Butler TTS<br/>Piper / espeak / macOS]
+        ANIMATE[skin/animate.py<br/>ASCII Face + CRT Boot]
+
+        ANIMATE --> |"4 mouth frames"| SYNC[Phoneme Sync]
+        ANIMATE --> |"boot sequence"| CRT[CRT Warm-up Flicker]
+        ANIMATE --> |"expressions"| EXPR[think / judge / approve / reject]
+
+        VOICE --> |"signature"| SIG["My name Jeff."<br/>Flat. Zero inflection.]
+        VOICE --> |"speed 0.85x"| MEASURED[Measured Cadence]
+        VOICE --> |"pitch -10"| DEEP[Lower Register]
+    end
+
+    style ANIMATE fill:#c9a84c,color:#1a1410
+    style SIG fill:#333,color:#fff

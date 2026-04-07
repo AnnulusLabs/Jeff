@@ -1,0 +1,21 @@
+graph TB
+    subgraph "sense — Knowledge Layer"
+        L1[L1 Cache<br/>Context Window<br/>What the model sees NOW]
+        L2[L2 Cache<br/>SQLite on Disk<br/>Everything, forever, indexed]
+        L3[L3 Cache<br/>Internet<br/>Prefetched by background bots]
+
+        L3 --> |"prefetch"| L2
+        L2 --> |"page in"| L1
+        L1 --> |"viewport"| MODEL[Model]
+
+        LORE[sense/lore.py] --> |"git history"| L2
+        LORE --> |"README/docs"| L2
+        LORE --> |"code comments"| L2
+        LORE --> |"configs"| L2
+
+        TOPIC[Topic Detection] --> |"predict need"| L3
+    end
+
+    style L1 fill:#c9a84c,color:#1a1410
+    style L2 fill:#4a7c59,color:#fff
+    style L3 fill:#0366d6,color:#fff

@@ -1,0 +1,19 @@
+graph LR
+    subgraph "mind — Intelligence Layer"
+        EVOLVE[mind/evolve.py<br/>Self-improvement Loop] --> |"act"| ACT[Execute Task]
+        ACT --> |"test"| TEST[Verify Output]
+        TEST --> |"judge"| JUDGE[Gate Check]
+        JUDGE --> |"learn"| LEARN[Extract K]
+        LEARN --> |"retain"| RETAIN[K-History]
+        RETAIN --> |"adapt"| ADAPT[Update Strategy]
+        ADAPT --> |"verify"| VERIFY[Confirm Improvement]
+        VERIFY --> |"next"| EVOLVE
+
+        DEADENDS[mind/deadends.py] --> |"tracks"| BANNED[Banned Approaches]
+        DEADENDS --> |"after 2 fails"| BLOCK[Forbidden This Session]
+        DEADENDS --> |"suggests"| ALT[Try Different Approach]
+    end
+
+    style EVOLVE fill:#4a7c59,color:#fff
+    style RETAIN fill:#c9a84c,color:#1a1410
+    style BLOCK fill:#8b2500,color:#fff

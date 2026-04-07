@@ -1,0 +1,37 @@
+graph TB
+    subgraph "WorkPlay — The Game IS the Work"
+        GH[GitHub Webhook] --> |"PR event"| FETCH[Fetch PR + Files]
+        MANUAL[Manual URL Entry] --> FETCH
+
+        FETCH --> CLASSIFY[classify.py<br/>KERF Basin Classification]
+
+        CLASSIFY --> |"quality_inspection"| MEDIEVAL[Medieval Theme<br/>Inspect the Gate]
+        CLASSIFY --> |"defense"| SCIFI[Sci-fi Theme<br/>Fortify the Grid]
+        CLASSIFY --> |"logistics"| MINIMAL[Minimal Theme<br/>Supply Chain Check]
+        CLASSIFY --> |"any"| WORK[Standard Work View]
+
+        MEDIEVAL --> TOGGLE["THE TOGGLE<br/>< 100ms switch"]
+        SCIFI --> TOGGLE
+        MINIMAL --> TOGGLE
+        WORK --> TOGGLE
+
+        TOGGLE --> |"View Blueprint"| DIFF[Themed Diff Viewer<br/>REAL artifact, themed chrome]
+        TOGGLE --> |"Inspect Joints"| ISSUES[Gate-identified Issues]
+        TOGGLE --> |"Test Under Load"| TESTS[Run Test Suite]
+
+        DIFF --> DECIDE{Human Decision}
+        DECIDE --> APPROVE[Approve / Commission]
+        DECIDE --> CHANGES[Request Changes / Send to Forge]
+        DECIDE --> REJECT[Reject]
+
+        DECIDE --> TELEM[telemetry.py<br/>time-to-correct-decision]
+        DECIDE --> AUDIT[View-Agnostic Audit Log]
+        DECIDE --> |"optional"| GHAPI[Push Review to GitHub]
+
+        CLASSIFY --> FATIGUE[Narrative Fatigue Engine<br/>full → brief → silent → humor]
+        CLASSIFY --> EXPLAIN[KERF Explainability<br/>Why this mapping?]
+    end
+
+    style TOGGLE fill:#c9a84c,color:#1a1410,stroke-width:3px
+    style AUDIT fill:#333,color:#fff
+    style DECIDE fill:#0366d6,color:#fff

@@ -1,0 +1,26 @@
+graph TB
+    subgraph "hand — Multi-Domain Routing"
+        INPUT[Task Text] --> DETECT[detect_domain]
+
+        DETECT --> CODE[Code Domain<br/>qwen2.5-coder:7b]
+        DETECT --> RESEARCH[Research Domain<br/>deepseek-r1:7b]
+        DETECT --> WRITE[Write Domain<br/>hermes3:8b]
+        DETECT --> ANALYZE[Analyze Domain<br/>deepseek-r1:7b]
+        DETECT --> PLAN[Plan Domain<br/>deepseek-r1:7b]
+        DETECT --> TEACH[Teach Domain<br/>hermes3:8b<br/>Socratic K-generation]
+        DETECT --> THINK[Think Domain<br/>deepseek-r1:7b]
+
+        CODE --> FORGE["@hand-forge<br/>forge.py — Self-builds missing tools"]
+        CODE --> PULSE["pulse.py — Drift monitor<br/>Catches rabbit holes"]
+        CODE --> BATCH["batch.py — Gather questions<br/>Don't interrupt constantly"]
+
+        FORGE --> |"1. Check local"| LOCAL[Already installed?]
+        FORGE --> |"2. Search PyPI"| PYPI[Find package]
+        FORGE --> |"3. Build it"| BUILD[Generate tool stub]
+        FORGE --> |"4. Test it"| TEST[Self-test]
+        FORGE --> |"5. Wire it"| WIRE[Add to nerve/]
+    end
+
+    style DETECT fill:#4a7c59,color:#fff
+    style FORGE fill:#c9a84c,color:#1a1410
+    style TEACH fill:#0366d6,color:#fff

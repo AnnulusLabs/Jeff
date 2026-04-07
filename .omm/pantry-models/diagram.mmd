@@ -1,0 +1,21 @@
+graph TB
+    subgraph "pantry — Model Management"
+        OLLAMA[Ollama API<br/>localhost:11434] --> MODELS
+
+        subgraph MODELS [46 Models]
+            H8[hermes3:8b<br/>Chat / Write / Teach]
+            QC[qwen2.5-coder:7b<br/>Code Domain]
+            DS[deepseek-r1:7b<br/>Reasoning / Analysis]
+            LIGHT[phi3:mini / qwen2.5:3b<br/>Battery-saver]
+        end
+
+        VITALS[pantry/vitals.py] --> |"tokens/sec"| HEALTH[Model Health]
+        VITALS --> |"cost estimate"| COST["$0 local / $0.02 API"]
+        VITALS --> |"power aware"| POWER[Battery? → Small model<br/>Solar? → Big model]
+
+        CLUSTER[pantry/cluster.py] --> |"distribute"| NODES[3090 + future MI60]
+        DIET[pantry/diet.py] --> |"optimize"| QUANT[Quantization<br/>MoE Split<br/>KV Cache<br/>Speculative Decode]
+    end
+
+    style OLLAMA fill:#333,color:#fff
+    style COST fill:#28a745,color:#fff

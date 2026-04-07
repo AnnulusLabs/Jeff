@@ -1,0 +1,48 @@
+graph TB
+    subgraph "Jeff — The Organism"
+        CLI[jeff/cli.py<br/>Entry Point]
+
+        CLI --> |"domain detect"| HAND["@hand-routing"]
+        CLI --> |"model select"| PANTRY["@pantry-models"]
+        CLI --> |"quality check"| GATE[jeff/gate<br/>Quality Gate]
+        CLI --> |"session state"| BONE[jeff/bone<br/>Persistence]
+
+        HAND --> |"execute tools"| NERVE[jeff/nerve<br/>Tool Dispatch]
+        HAND --> |"spawn agents"| STAFF["@staff-agents"]
+        HAND --> |"security check"| GUARD["@guard-security"]
+
+        PANTRY --> |"model health"| VITALS[pantry/vitals]
+        PANTRY --> |"distribute"| CLUSTER[pantry/cluster]
+        PANTRY --> |"optimize"| DIET[pantry/diet]
+
+        GUARD --> |"basin classify"| BASIN[guard/basin]
+        GUARD --> |"injection scan"| FIREWALL[guard/firewall]
+        GUARD --> |"sandbox exec"| SANDBOX[guard/sandbox]
+        GUARD --> |"coordinate"| ENFORCER[guard/enforcer]
+
+        STAFF --> |"learn"| MIND["@mind-intelligence"]
+        STAFF --> ARCHITECT[staff/architect]
+        STAFF --> SCHOLAR[staff/scholar]
+        STAFF --> JANITOR[staff/janitor]
+
+        MIND --> EVOLVE[mind/evolve]
+        MIND --> DEADENDS[mind/deadends]
+
+        CLI --> |"prefetch"| SENSE["@sense-knowledge"]
+        SENSE --> LORE[sense/lore]
+
+        CLI --> |"display"| SKIN["@skin-interface"]
+        SKIN --> VOICE[skin/voice]
+        SKIN --> ANIMATE[skin/animate]
+
+        CLI --> |"state machine"| BLOOD["@blood-kernel"]
+
+        CLI --> |"games"| ARCADE[jeff/arcade]
+        CLI --> |"review"| WORKPLAY["@workplay-mvp"]
+    end
+
+    style CLI fill:#c9a84c,color:#1a1410
+    style GUARD fill:#8b2500,color:#fff
+    style BLOOD fill:#660000,color:#fff
+    style WORKPLAY fill:#0366d6,color:#fff
+    style MIND fill:#4a7c59,color:#fff
