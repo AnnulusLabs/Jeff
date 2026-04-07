@@ -1,5 +1,6 @@
 """jeff.personality — Jeff's voice. Dry competence. Zero sycophancy."""
 
+import re
 from enum import Enum
 
 class Level(Enum):
@@ -80,3 +81,14 @@ def sanitize(text: str) -> str:
         line = line.replace("!", ".")
         cleaned.append(line)
     return "\n".join(cleaned)
+
+
+def ask_dont_tell(text: str) -> str:
+    """Reframe flat statements as requests for analysis instead of affirmation."""
+    stripped = text.strip()
+    if not stripped or "?" in stripped:
+        return stripped
+    if re.match(r"^(who|what|when|where|why|how)\b", stripped.lower()):
+        return stripped
+    return ("Evaluate this statement critically. Do not agree by reflex. "
+            f"Name assumptions, risks, and what would change your mind.\n\n{stripped}")

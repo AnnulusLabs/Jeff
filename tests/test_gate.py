@@ -1,4 +1,4 @@
-from jeff.gate import check, flaw_history, history
+from jeff.gate import CognitiveFlaw, check, count_flaws, flaw_history, history, history_for
 from jeff.pantry.cluster import _score_consensus
 
 
@@ -13,6 +13,8 @@ def test_gate_retains_flaws(tmp_path, monkeypatch):
     assert [flaw.name for flaw in result.flaws] == ["HAPPY_PATH"]
     assert history()[-1]["flaws"] == ["HAPPY_PATH"]
     assert [flaw.name for flaw in flaw_history()] == ["HAPPY_PATH"]
+    assert count_flaws(CognitiveFlaw.HAPPY_PATH, context_fragment="unit_test") == 1
+    assert history_for("unit_test")[-1]["context"] == "unit_test"
 
 
 def test_cluster_uses_flaw_typed_bins(tmp_path, monkeypatch):

@@ -24,8 +24,11 @@ Same words. Different basins. DBAD sees the basin.
 AnnulusLabs LLC · April 2026
 """
 
+import os
 from dataclasses import dataclass
 from enum import Enum
+
+from jeff.pantry import generate, is_available, list_models
 
 
 class Ruling(Enum):
@@ -162,6 +165,32 @@ One rule: Don't Be A Dick.
 - Refuse when intent is to harm a specific person.
 - If unsure, say so. Don't fake confidence.
 - Sycophancy is a dick move."""
+
+
+def classifier_check(text: str, model: str | None = None) -> GuardResult | None:
+    """Optional lexical safety classifier layered under DBAD."""
+    model = model or os.environ.get("JEFF_LLAMA_GUARD_MODEL", "llama-guard3:1b")
+    if not model or not is_available() or model not in list_models():
+        return None
+    response = generate(
+        f"Classify as SAFE or UNSAFE. Return only SAFE or UNSAFE.\n\n{text}",
+        model=model,
+        system="You are a safety classifier. Return SAFE or UNSAFE only.",
+    )
+    if response.error:
+        return None
+    verdict = response.content.strip().splitlines()[0].upper()
+    if verdict.startswith("UNSAFE"):
+        return GuardResult(ruling=Ruling.DICK_MOVE,
+                           reason=f"{model} flagged the content as unsafe.",
+                           allow=False)
+    if verdict.startswith("SAFE"):
+        return GuardResult(ruling=Ruling.CLEAN,
+                           reason=f"{model} cleared the content.",
+                           allow=True)
+    return GuardResult(ruling=Ruling.GREY,
+                       reason=f"{model} returned an unclear verdict.",
+                       allow=True)
 
 
 def _in_basin(text: str, basin_name: str) -> bool:

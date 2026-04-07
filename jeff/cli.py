@@ -12,6 +12,9 @@ Commands:
     jeff cluster      Distributed nodes
     jeff status       Current state
     jeff arcade       Play games. Ship code.
+    jeff diner        Run the diner shift
+    jeff relay        Bell status
+    jeff workplay     Themed PR review
     jeff version      Version
 """
 
@@ -22,7 +25,7 @@ from jeff import __version__
 from jeff import skin, bone, personality
 from jeff.nerve import dispatch, bash, tree, TOOLS
 from jeff.pantry import chat, generate, list_models, is_available, PantryConfig, JEFF_SYSTEM
-from jeff.gate import check, gate_prompt, format_result
+from jeff.gate import CognitiveFlaw, check, count_flaws, gate_prompt, format_result
 
 
 def _sid() -> str:
@@ -58,7 +61,8 @@ def init():
 @click.option("--model", "-m", default=None)
 def run(task, model):
     """Execute a task."""
-    task_text = " ".join(task)
+    raw_task = " ".join(task)
+    task_text = personality.ask_dont_tell(raw_task)
     sid = _sid()
     session = bone.load_session(sid) or bone.Session(id=sid, cwd=os.getcwd())
 
@@ -72,13 +76,24 @@ def run(task, model):
 
     # Route through hand for domain detection
     from jeff.hand import detect_domain, DOMAIN_PROMPTS
-    domain, confidence = detect_domain(task_text)
+    domain, confidence = detect_domain(raw_task)
+    assumption_count = count_flaws(
+        CognitiveFlaw.ASSUMPTION,
+        context_fragment=f"cwd:{os.getcwd()}",
+        limit=200,
+    )
 
     cwd_info = tree(os.getcwd(), depth=2)
+    rot_warning = ""
+    if assumption_count >= 3:
+        rot_warning = (f"\nContext rot warning: this workspace accumulated "
+                       f"{assumption_count} unstated-assumption hits recently. "
+                       "State assumptions explicitly before you answer.\n")
     system = f"""{JEFF_SYSTEM}
 
 Domain: {domain.value} (confidence: {confidence:.0%})
 {DOMAIN_PROMPTS.get(domain, '')}
+{rot_warning}
 
 Working directory: {os.getcwd()}
 Files:\n{cwd_info.output[:2000]}
@@ -91,7 +106,7 @@ When done, respond: DONE: <summary>
 """
     session.add("user", task_text)
     messages = session.history(limit=20)
-    skin.whisper(f"[{domain.value}] {task_text}")
+    skin.whisper(f"[{domain.value}] {raw_task}")
 
     for turn in range(15):
         response = chat(messages, config=cfg, system=system)
@@ -151,7 +166,7 @@ def ask(task, model):
     cfg = PantryConfig()
     if model:
         cfg.default_model = model
-    response = generate(" ".join(task), config=cfg, system=JEFF_SYSTEM)
+    response = generate(personality.ask_dont_tell(" ".join(task)), config=cfg, system=JEFF_SYSTEM)
     if response.error:
         skin.alert(personality.Level.ERROR, response.error)
     else:
@@ -180,7 +195,7 @@ def ship():
     for f in files[:20]:
         code = dispatch("read", path=f)
         if code.success:
-            gate = check(code.output)
+            gate = check(code.output, context=f"cwd:{os.getcwd()} file:{f}")
             if not gate.passed:
                 skin.alert(personality.Level.WARN, f"{f}: {format_result(gate)}")
                 issues += 1
@@ -192,6 +207,12 @@ def ship():
             skin.alert(personality.Level.ERROR, f"Tests failed.\n{test.output or test.error}")
     else:
         skin.alert(personality.Level.WARN, f"{issues} file(s) flagged. Fix before shipping.")
+    assumptions = count_flaws(CognitiveFlaw.ASSUMPTION, context_fragment=f"cwd:{os.getcwd()}", limit=200)
+    if assumptions >= 3:
+        skin.alert(
+            personality.Level.WARN,
+            f"Context rot: {assumptions} unstated-assumption hits in this workspace. Surface them.",
+        )
 
 
 @main.command()
@@ -206,11 +227,17 @@ def audit():
     for f in files[:50]:
         code = dispatch("read", path=f)
         if code.success:
-            gate = check(code.output)
+            gate = check(code.output, context=f"cwd:{os.getcwd()} file:{f}")
             if not gate.passed:
                 skin.alert(personality.Level.WARN, f"{f}: {format_result(gate)}")
                 issues += 1
     skin.done("Audit clean." if issues == 0 else f"{issues} file(s) flagged.")
+    assumptions = count_flaws(CognitiveFlaw.ASSUMPTION, context_fragment=f"cwd:{os.getcwd()}", limit=200)
+    if assumptions >= 3:
+        skin.alert(
+            personality.Level.WARN,
+            f"Context rot: {assumptions} unstated-assumption hits in this workspace. Surface them.",
+        )
 
 
 @main.command()
@@ -262,8 +289,22 @@ def status():
 @main.command()
 def arcade():
     """Play games. Ship code. Same thing."""
-    from jeff.arcade import arcade_menu
+    from jeff.workplay.arcade import arcade_menu
     arcade_menu()
+
+
+@main.command()
+def diner():
+    """Run Jeff's diner shift."""
+    from jeff.workplay.diner import main as diner_main
+    diner_main()
+
+
+@main.command()
+def relay():
+    """Bell status. Honest until the relay exists."""
+    from jeff.bell import summary
+    skin.say(summary())
 
 
 @main.command()

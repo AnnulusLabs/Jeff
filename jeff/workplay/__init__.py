@@ -1,14 +1,16 @@
 """jeff.workplay — The game IS the work.
 
-Local web app serving themed PR review.
-ONE task type: PR review. ONE source: GitHub. THREE templates.
-ONE metric: time-to-correct-decision.
+Local web app serving themed PR review plus work-bound game surfaces.
+ONE task type in the web app: PR review. ONE source: GitHub.
+Arcade and diner live here too because they frame the same work loop.
 
     python -m jeff.workplay
     # → http://localhost:8421
 
 Or via CLI:
     jeff workplay
+    jeff arcade
+    jeff diner
 
 AnnulusLabs LLC · April 2026
 """

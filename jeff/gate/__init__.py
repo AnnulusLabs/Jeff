@@ -108,6 +108,13 @@ def history(limit: int = 100) -> list[dict]:
     return rows
 
 
+def history_for(context_fragment: str = "", limit: int = 100) -> list[dict]:
+    rows = history(limit=limit)
+    if not context_fragment:
+        return rows
+    return [row for row in rows if context_fragment in row.get("context", "")]
+
+
 def flaw_history(limit: int = 100) -> list[CognitiveFlaw]:
     flaws = []
     for row in history(limit):
@@ -115,6 +122,14 @@ def flaw_history(limit: int = 100) -> list[CognitiveFlaw]:
             if name in CognitiveFlaw.__members__:
                 flaws.append(CognitiveFlaw[name])
     return flaws
+
+
+def count_flaws(
+    flaw: CognitiveFlaw,
+    context_fragment: str = "",
+    limit: int = 100,
+) -> int:
+    return sum(row.get("flaws", []).count(flaw.name) for row in history_for(context_fragment, limit))
 
 
 def k_history_path() -> Path:

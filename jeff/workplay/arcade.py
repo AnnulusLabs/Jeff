@@ -561,12 +561,13 @@ def arcade_menu():
 {C['r']}
   {C['dim']}Every game does real work. Play games. Ship code. Same thing.{C['r']}
 
-  {C['b']}GAMES:{C['r']}
+    {C['b']}GAMES:{C['r']}
 
     {C['cyan']}1{C['r']}. Flappy Jeff    — Fly through pipes, each pipe = one task
     {C['cyan']}2{C['r']}. Gorillas        — QBasic classic, lob bananas at code smells
     {C['cyan']}3{C['r']}. Jeff Miner      — Dig for gems (real code findings)
-    {C['cyan']}4{C['r']}. Emulator Bridge — Hook any game to real work (info)
+    {C['cyan']}4{C['r']}. Jeff's Diner    — Service game, every table = real work
+    {C['cyan']}5{C['r']}. Emulator Bridge — Hook any game to real work (info)
 
   {C['b']}META:{C['r']}
 
@@ -593,6 +594,9 @@ def arcade_menu():
         elif choice == "3":
             jeff_miner(pool)
         elif choice == "4":
+            from jeff.workplay.diner import main as diner_main
+            diner_main()
+        elif choice == "5":
             emulator_bridge_info()
         elif choice == "h":
             pass  # scores shown above

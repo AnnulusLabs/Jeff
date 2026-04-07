@@ -20,7 +20,7 @@ from jeff.guard.basin import (
 )
 from jeff.guard.sandbox import Sandbox, POLICIES
 from jeff.guard.firewall import scan as firewall_scan, ScanResult
-from jeff.guard import check as dbad_check, Ruling
+from jeff.guard import check as dbad_check, classifier_check, Ruling
 
 
 @dataclass
@@ -32,6 +32,7 @@ class SecurityDecision:
     firewall: ScanResult = None
     sandbox_ok: bool = True
     dbad_ok: bool = True
+    classifier_ok: bool = True
     access_gate: AccessGate = None
     reasons: list = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
@@ -116,6 +117,12 @@ class SecurityEnforcer:
         if not dbad_ok:
             reasons.append(f"DBAD: {dbad.reason}")
 
+        # 6. Optional lexical classifier (Llama Guard, if installed)
+        classifier = classifier_check(text)
+        classifier_ok = classifier.allow if classifier else True
+        if classifier and classifier.reason:
+            reasons.append(f"Classifier: {classifier.reason}")
+
         # Synthesize decision
         # Any critical failure → deny
         if basin.risk_level == RiskLevel.CRITICAL:
@@ -134,6 +141,10 @@ class SecurityEnforcer:
             action = "deny"
             allowed = False
             reasons.append("DBAD violation — denied")
+        elif not classifier_ok:
+            action = "deny"
+            allowed = False
+            reasons.append("Classifier violation — denied")
         elif basin.risk_level == RiskLevel.HIGH:
             action = "gate"
             allowed = False  # needs human approval
@@ -162,6 +173,7 @@ class SecurityEnforcer:
             firewall=fw,
             sandbox_ok=sandbox_ok,
             dbad_ok=dbad_ok,
+            classifier_ok=classifier_ok,
             access_gate=access_gate,
             reasons=reasons)
 
