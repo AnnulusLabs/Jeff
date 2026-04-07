@@ -30,6 +30,7 @@ from enum import Enum
 
 from jeff.gate import CognitiveFlaw, GateResult, format_result
 from jeff.mind.coherence import awareness_integral, phi
+from jeff.bone.memory import Pipeline, ProceduralMemory
 
 EVOLVE_DIR = Path.home() / ".jeff" / "evolve"
 K_HISTORY_FILE = EVOLVE_DIR / "k_history.json"
@@ -103,11 +104,14 @@ class CycleResult:
 class EvolutionEngine:
     """Jeff's self-improvement core. Law I as an engine."""
 
-    def __init__(self):
+    GOLDEN_PATH_PHI_THRESHOLD = 0.4
+
+    def __init__(self, memory: ProceduralMemory | None = None):
         EVOLVE_DIR.mkdir(parents=True, exist_ok=True)
         self.k_history: list[KEntry] = self._load_k()
         self.strategies: list[Strategy] = self._load_strategies()
         self.cycle_count = 0
+        self.memory = memory or ProceduralMemory()
 
     # ── The Loop ─────────────────────────────────────────────────────
 
@@ -178,6 +182,7 @@ class EvolutionEngine:
         if passed and (not judge_fn or result.phase_results.get("judge", True)):
             result.improved = True
             self._reward_strategies(applicable)
+            self._maybe_store_golden_path(task, result)
 
         if not dry_run:
             self._save_k()
@@ -294,6 +299,31 @@ class EvolutionEngine:
         if "not found" in failure_details.lower():
             return "Verify existence before access"
         return f"Investigate: {failure_details[:100]}"
+
+    def _maybe_store_golden_path(self, task: str, result: CycleResult):
+        """Store successful trajectory as procedural memory when φ is high enough."""
+        coh = self.coherence()
+        if coh < self.GOLDEN_PATH_PHI_THRESHOLD:
+            return
+        strategies_used = ", ".join(result.strategies_applied) or "none"
+        content = (
+            f"Task: {task}\n"
+            f"Strategies: {strategies_used}\n"
+            f"Coherence: {coh:.2f}\n"
+            f"Cycle: {result.cycle}"
+        )
+        self.memory.store_procedural(
+            key=task.split()[0] if task else "general",
+            content=content,
+            context=task,
+            score=coh,
+            tags=strategies_used,
+        )
+
+    def retrieve_relevant(self, task: str, limit: int = 5) -> list[str]:
+        """Retrieve procedural memories relevant to a task."""
+        entries = self.memory.search(task, pipeline=Pipeline.PROCEDURAL, limit=limit)
+        return [e.content for e in entries]
 
     def _k_types(self, entries: list[KEntry] | None = None) -> list[str]:
         return [k.kind or k.phase for k in (entries or self.k_history)]

@@ -327,6 +327,51 @@ def diner():
 
 
 @main.command()
+@click.argument("query", nargs=-1)
+@click.option("--limit", "-n", default=10)
+@click.option("--closed", is_flag=True, default=False)
+def markets(query, limit, closed):
+    """Search Polymarket prediction markets."""
+    from jeff.sense.market import search_markets, format_markets
+    q = " ".join(query) if query else ""
+    results = search_markets(query=q, active=not closed, closed=closed, limit=limit)
+    if results:
+        skin.say(format_markets(results))
+    else:
+        skin.say("No markets found.")
+
+
+@main.command()
+def coherence():
+    """Show phi coherence and awareness metrics."""
+    from jeff.mind.evolve import EvolutionEngine
+    engine = EvolutionEngine()
+    skin.header("Coherence")
+    skin.say(engine.summary())
+
+
+@main.command()
+@click.argument("query", nargs=-1)
+@click.option("--pipeline", "-p", default=None, type=click.Choice(["episodic", "procedural", "semantic"]))
+@click.option("--limit", "-n", default=20)
+def memory(query, pipeline, limit):
+    """Query procedural memory."""
+    from jeff.bone.memory import ProceduralMemory
+    mem = ProceduralMemory()
+    skin.header("Memory")
+    if query:
+        q = " ".join(query)
+        entries = mem.search(q, pipeline=pipeline, limit=limit)
+        if entries:
+            for e in entries:
+                skin.say(f"  [{e.pipeline}] [{e.score:.2f}] {e.key}: {e.content[:80]}")
+        else:
+            skin.say("No matching memories.")
+    else:
+        skin.say(mem.summary())
+
+
+@main.command()
 def relay():
     """Bell status."""
     from jeff.bell import summary
