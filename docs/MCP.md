@@ -84,12 +84,21 @@ Shows:
 
 `jeff/bell` exposes Jeff to other MCP clients.
 
-Bell tools:
+Core tools:
 
 - `jeff_status`
 - `jeff_ask`
 - `jeff_run`
 - `jeff_audit`
+
+Introspection tools (Phase 3.6):
+
+- `jeff_k_history(context_fragment, limit)` — query retained gate K
+- `jeff_flaw_count(flaw, context_fragment, limit)` — count cognitive flaws
+- `jeff_coherence()` — phi, awareness, convergence rate from the evolve engine
+- `jeff_session(session_id, cwd)` — session message history
+
+Note: `jeff_k_history` and `jeff_flaw_count` query the gate's per-file flaw store (`~/.jeff/gate/k_history.jsonl`). `jeff_coherence` queries the evolve loop's task-level learning store (`~/.jeff/evolve/k_history.json`). These are intentionally separate K stores serving different layers of Jeff's architecture.
 
 The first round keeps Bell thin on purpose:
 
