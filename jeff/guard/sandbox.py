@@ -226,6 +226,10 @@ class Sandbox:
             }
 
         try:
+            # shell=True is intentional here — this IS the sandbox runner, and
+            # every command has already passed SandboxCheck above (see line 212
+            # onward). Do not remove shell=True without also removing the gate
+            # that makes it safe.  # nosec B602 umph:allow:command_injection
             result = subprocess.run(
                 command, shell=True,
                 cwd=cwd or self.project_root,

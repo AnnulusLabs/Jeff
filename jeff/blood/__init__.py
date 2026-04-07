@@ -242,17 +242,22 @@ class AuditLog:
 
     def query(self, task_id: str = "", actor: str = "",
               limit: int = 100) -> list[dict]:
-        where, params = [], []
-        if task_id:
-            where.append("task_id=?")
-            params.append(task_id)
-        if actor:
-            where.append("actor=?")
-            params.append(actor)
-        clause = f"WHERE {' AND '.join(where)}" if where else ""
-        rows = self.db.execute(
-            f"SELECT * FROM audit {clause} ORDER BY timestamp DESC LIMIT ?",
-            params + [limit]).fetchall()
+        # Static SQL only. WHERE branches are hardcoded, values parameterized.
+        params: list = []
+        if task_id and actor:
+            sql = ("SELECT * FROM audit WHERE task_id=? AND actor=? "
+                   "ORDER BY timestamp DESC LIMIT ?")
+            params = [task_id, actor, limit]
+        elif task_id:
+            sql = "SELECT * FROM audit WHERE task_id=? ORDER BY timestamp DESC LIMIT ?"
+            params = [task_id, limit]
+        elif actor:
+            sql = "SELECT * FROM audit WHERE actor=? ORDER BY timestamp DESC LIMIT ?"
+            params = [actor, limit]
+        else:
+            sql = "SELECT * FROM audit ORDER BY timestamp DESC LIMIT ?"
+            params = [limit]
+        rows = self.db.execute(sql, params).fetchall()
         cols = ["id", "timestamp", "actor", "action", "task_id",
                 "input_hash", "output_hash", "decision", "confidence",
                 "state_before", "state_after", "metadata"]

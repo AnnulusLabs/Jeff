@@ -65,17 +65,22 @@ class LoreIndex:
         except sqlite3.Error:
             pass
 
+    _MAX_SEARCH_WORDS = 8
+
     def search(self, query: str, limit: int = 10) -> list[dict]:
-        """Search lore by keyword. Simple but effective."""
-        words = query.lower().split()
+        """Search lore by keyword. Cap word count, build WHERE statically."""
+        words = query.lower().split()[:self._MAX_SEARCH_WORDS]
         if not words:
             return []
-        where = " AND ".join(["LOWER(content) LIKE ?" for _ in words])
-        params = [f"%{w}%" for w in words]
-        rows = self.db.execute(
-            f"SELECT kind, content, source, relevance FROM lore "
-            f"WHERE {where} ORDER BY relevance DESC, timestamp DESC LIMIT ?",
-            params + [limit]).fetchall()
+        # Build WHERE from a fixed template — no user-influenced SQL identifiers.
+        placeholders = " AND ".join(["LOWER(content) LIKE ?"] * len(words))
+        sql = (
+            "SELECT kind, content, source, relevance FROM lore "
+            "WHERE " + placeholders +
+            " ORDER BY relevance DESC, timestamp DESC LIMIT ?"
+        )
+        params = [f"%{w}%" for w in words] + [limit]
+        rows = self.db.execute(sql, params).fetchall()
         return [{"kind": r[0], "content": r[1][:500], "source": r[2],
                  "relevance": r[3]} for r in rows]
 

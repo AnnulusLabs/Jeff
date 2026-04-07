@@ -16,6 +16,9 @@ class CognitiveFlaw(Enum):
     ANCHORING = "anchored to first solution"
     PREMATURE = "premature abstraction"
     TUNNEL = "tunnel vision on implementation"
+    SECURITY = "unmitigated security risk"
+    DEAD_CODE = "code that cannot execute"
+    ERROR_SWALLOW = "swallowed error without handling"
 
 
 @dataclass
@@ -34,22 +37,24 @@ GATE = [
 ]
 
 
-def check(code: str, context: str = "") -> GateResult:
+def check(code: str, context: str = "", use_umph: bool = True) -> GateResult:
     """Run the gate. Returns pass/fail and any cognitive flaws detected.
 
     In practice this is model-assisted — the gate questions are injected
-    into the model prompt and the model self-checks against them.
-    This module provides the framework; jeff/mind wires it to the model.
-    """
-    # Static checks that don't need a model
-    flaws = []
+    into the model prompt and the model self-checks against them. This
+    module provides the framework; jeff/mind wires it to the model.
 
-    # No error handling at all
+    UMPH signature scanning runs by default — 12 infection categories
+    covering security, malware, dead code, and technical debt. Disable
+    with use_umph=False for unit tests of the static-only path.
+    """
+    flaws: list[CognitiveFlaw] = []
+
+    # Static checks that don't need a model or UMPH
     if "try" not in code and "except" not in code and "catch" not in code:
         if "def " in code and len(code.split("\n")) > 20:
             flaws.append(CognitiveFlaw.HAPPY_PATH)
 
-    # TODO/FIXME/HACK without explanation
     for marker in ("TODO", "FIXME", "HACK", "XXX"):
         for line in code.split("\n"):
             stripped = line.strip()
@@ -57,8 +62,36 @@ def check(code: str, context: str = "") -> GateResult:
                 flaws.append(CognitiveFlaw.ASSUMPTION)
                 break
 
+    # UMPH signature scanning (the NOX resurrection layer)
+    umph_infections: list = []
+    if use_umph:
+        try:
+            from jeff.guard.umph import scan as umph_scan, InfectionType
+            umph_infections = umph_scan(code, file_path=context)
+            for inf in umph_infections:
+                if inf.infection_type in (
+                    InfectionType.SQL_INJECTION,
+                    InfectionType.COMMAND_INJECTION,
+                    InfectionType.HARDCODED_SECRET,
+                    InfectionType.INSECURE_DESERIALIZE,
+                    InfectionType.PATH_TRAVERSAL,
+                    InfectionType.BACKDOOR,
+                    InfectionType.KEYLOGGER,
+                    InfectionType.EXFILTRATION,
+                ):
+                    flaws.append(CognitiveFlaw.SECURITY)
+                elif inf.infection_type == InfectionType.DEAD_CODE:
+                    flaws.append(CognitiveFlaw.DEAD_CODE)
+                elif inf.infection_type == InfectionType.MISSING_ERROR_HANDLING:
+                    flaws.append(CognitiveFlaw.ERROR_SWALLOW)
+        except ImportError:
+            pass  # UMPH not available — static checks still run
+
     result = GateResult(passed=len(flaws) == 0, flaws=_dedupe(flaws))
-    retain(result, context=context, sample=code)
+    # Attach UMPH infection details to notes for detailed retention
+    if umph_infections:
+        result.notes = f"UMPH: {len(umph_infections)} infections"
+    retain(result, context=context, sample=code, umph_infections=umph_infections)
     return result
 
 
@@ -78,20 +111,33 @@ def format_result(result: GateResult) -> str:
     return f"Gate failed. Flaws: {flaw_list}"
 
 
-def retain(result: GateResult, context: str = "", sample: str = "") -> int:
+def retain(result: GateResult, context: str = "", sample: str = "",
+           umph_infections: list | None = None) -> int:
     """Retain gate-generated K instead of discarding it."""
     if result.passed or not result.flaws:
         return 0
     path = k_history_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "timestamp": time.time(),
+        "flaws": [flaw.name for flaw in result.flaws],
+        "context": context[:200],
+        "sample": sample[:200],
+        "notes": result.notes,
+    }
+    if umph_infections:
+        record["umph"] = [
+            {
+                "signature": inf.signature_name,
+                "type": inf.infection_type.value,
+                "severity": inf.severity,
+                "line": inf.line_number,
+                "matched": inf.matched_text[:120],
+            }
+            for inf in umph_infections
+        ]
     with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps({
-            "timestamp": time.time(),
-            "flaws": [flaw.name for flaw in result.flaws],
-            "context": context[:200],
-            "sample": sample[:200],
-            "notes": result.notes,
-        }) + "\n")
+        fh.write(json.dumps(record) + "\n")
     return len(result.flaws)
 
 

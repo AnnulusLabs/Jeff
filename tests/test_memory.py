@@ -91,8 +91,10 @@ def test_summary(tmp_path):
 
 
 def test_recent(tmp_path):
+    import time
     mem = ProceduralMemory(db_path=tmp_path / "test.db")
     mem.store_episodic("old", "old event")
+    time.sleep(0.01)  # ensure distinct timestamps
     mem.store_episodic("new", "new event")
     recent = mem.recent(limit=1)
     assert len(recent) == 1

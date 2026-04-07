@@ -9,7 +9,7 @@ AnnulusLabs LLC · April 2026
 
 import csv
 import sqlite3
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 
 TELEMETRY_DIR = Path.home() / ".jeff" / "workplay"
@@ -71,13 +71,29 @@ class TelemetryStore:
             )""")
         self.db.commit()
 
+    _COLUMNS = (
+        "task_id", "pr_number", "reviewer", "view_mode",
+        "presented_at", "decided_at", "time_on_task_ms", "decision",
+        "comment", "artifact_opens", "analysis_runs", "issue_highlights",
+        "fidelity_tier", "template_used", "kerf_confidence", "basin",
+        "decision_reversed_within_7d", "post_merge_ci_failures",
+        "post_merge_bugs", "post_merge_hotfix",
+        "voluntary_session", "returned_without_prompt",
+    )
+
     def record(self, d: Decision):
-        data = asdict(d)
-        cols = ", ".join(data.keys())
-        placeholders = ", ".join(["?"] * len(data))
+        # Static SQL — no f-string interpolation of identifiers.
+        # Column names are fixed at module load; values are parameterized.
         self.db.execute(
-            f"INSERT INTO decisions ({cols}) VALUES ({placeholders})",
-            list(data.values()))
+            "INSERT INTO decisions "
+            "(task_id, pr_number, reviewer, view_mode, presented_at, decided_at, "
+            "time_on_task_ms, decision, comment, artifact_opens, analysis_runs, "
+            "issue_highlights, fidelity_tier, template_used, kerf_confidence, basin, "
+            "decision_reversed_within_7d, post_merge_ci_failures, post_merge_bugs, "
+            "post_merge_hotfix, voluntary_session, returned_without_prompt) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            tuple(getattr(d, col) for col in self._COLUMNS),
+        )
         self.db.commit()
 
     def count(self) -> int:
